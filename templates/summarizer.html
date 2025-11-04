@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block content %}
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    :focus-visible { outline: 4px solid #3b82f6; outline-offset: 2px; }
+</style>
+
+<div class="min-h-screen p-4 bg-gray-900 text-white font-sans">
+  <div class="w-full max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-2xl p-6 md:p-8 space-y-6">
+    <header class="text-center">
+      <h1 class="text-3xl md:text-4xl font-bold text-blue-400">Live Lecture Summarizer</h1>
+      <p class="text-lg text-gray-300 mt-2">Reduces cognitive overload by summarizing speech in real-time.</p>
+    </header>
+
+    <div class="flex flex-col sm:flex-row gap-4">
+      <button id="startButton" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 ease-in-out focus-visible:ring-4 ring-blue-500 ring-opacity-50">Start Listening</button>
+      <button id="stopButton" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 ease-in-out focus-visible:ring-4 ring-gray-500 ring-opacity-50" disabled>Stop Listening</button>
+    </div>
+
+    <div id="status" role="status" aria-live="polite" class="text-center text-lg font-medium text-yellow-400 h-6">Idle.</div>
+
+    <div class="space-y-2">
+      <h2 id="transcript-label" class="text-xl font-semibold text-gray-100">Live Transcript</h2>
+      <p class="text-sm text-gray-400">(What the microphone hears)</p>
+      <div id="transcriptBox" class="w-full h-32 bg-gray-900 rounded-lg p-4 overflow-y-auto border border-gray-700" aria-labelledby="transcript-label" aria-live="polite"></div>
+    </div>
+
+    <div class="space-y-2">
+      <h2 id="summary-label" class="text-xl font-semibold text-gray-100">AI Summary</h2>
+      <p class="text-sm text-gray-400">(The simplified version, read aloud)</p>
+      <div id="summaryBox" class="w-full h-32 bg-gray-900 rounded-lg p-4 overflow-y-auto border border-gray-700" aria-labelledby="summary-label" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const statusEl = document.getElementById('status');
+        const transcriptBox = document.getElementById('transcriptBox');
+        const summaryBox = document.getElementById('summaryBox');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (!SpeechRecognition) {
+            statusEl.textContent = "Sorry, your browser doesn't support Speech Recognition.";
+            startButton.disabled = true;
+            stopButton.disabled = true;
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            let finalTranscript = '';
+            let processingTimeout;
+
+            recognition.onstart = () => {
+                statusEl.textContent = 'Listening...';
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            };
+
+            recognition.onend = () => {
+                statusEl.textContent = 'Stopped. Click "Start" to listen again.';
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                if (finalTranscript) {
+                    getSummary(finalTranscript);
+                    finalTranscript = '';
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'no-speech') {
+                    statusEl.textContent = 'No speech detected. Stopping.';
+                } else if (event.error === 'audio-capture') {
+                    statusEl.textContent = 'Microphone error. Please check permissions.';
+                } else if (event.error === 'not-allowed') {
+                    statusEl.textContent = 'Permission denied. Please allow microphone access.';
+                } else {
+                    statusEl.textContent = `Error: ${event.error}`;
+                }
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + '. ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                transcriptBox.textContent = finalTranscript + interimTranscript;
+                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+
+                clearTimeout(processingTimeout);
+                processingTimeout = setTimeout(() => {
+                    if (finalTranscript) {
+                        getSummary(finalTranscript);
+                        finalTranscript = '';
+                    }
+                }, 2000);
+            };
+
+            startButton.addEventListener('click', () => {
+                try {
+                    finalTranscript = '';
+                    transcriptBox.textContent = '';
+                    summaryBox.textContent = '';
+                    recognition.start();
+                } catch (e) {
+                    statusEl.textContent = `Error starting recognition: ${e.message}`;
+                }
+            });
+
+            stopButton.addEventListener('click', () => {
+                recognition.stop();
+            });
+        }
+
+        async function getSummary(text) {
+            statusEl.textContent = 'Processing summary...';
+            const apiKey = "AIzaSyAG87RngM6MqKtoXXAT9Rxdz9YnHgbyEjI";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `
+                You are a real-time summarization assistant for a person with visual impairments experiencing cognitive overload.
+                Your job is to take the following lecture transcript and provide a very short, clear, one or two-sentence summary.
+                Focus only on the main idea. Be concise. Do not use markdown.
+            `;
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: `Transcript: "${text}"` }]
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                let response;
+                let retries = 0;
+                const maxRetries = 3;
+                let delay = 1000;
+
+                while (retries < maxRetries) {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        break;
+                    }
+                    retries++;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`API request failed after ${maxRetries} retries with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const summary = candidate.content.parts[0].text;
+                    summaryBox.textContent = summary;
+                    summaryBox.scrollTop = summaryBox.scrollHeight;
+                    speakSummary(summary);
+                    statusEl.textContent = 'Listening...';
+                } else {
+                    if (result.promptFeedback && result.promptFeedback.blockReason) {
+                        throw new Error(`Summary blocked: ${result.promptFeedback.blockReason}`);
+                    } else if (candidate && candidate.finishReason !== "STOP") {
+                        throw new Error(`Generation stopped: ${candidate.finishReason}`);
+                    } else {
+                        throw new Error('Invalid API response. No text received.');
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting summary:', error);
+                statusEl.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function speakSummary(text) {
+            if (!window.speechSynthesis) {
+                console.warn("Speech Synthesis not supported by this browser.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            const voices = window.speechSynthesis.getVoices();
+            utterance.voice = voices.find(v => v.lang.startsWith('en-') && (v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Native')));
+            window.speechSynthesis.speak(utterance);
+        }
+
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                console.log("Speech synthesis voices loaded.");
+            };
+        }
+    </script>
+{% endblock %}
+
+
