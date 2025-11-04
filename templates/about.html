@@ -1,86 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<style>
-    /* Scoped styles for the About section */
-    .about-section {
-        max-width: 920px;
-        margin: 40px auto;
-        padding: 32px 24px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, rgba(254,218,106,0.07), rgba(57,63,77,0.35));
-        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-        text-align: center;
-    }
-    .about-heading {
-        font-size: 40px;
-        line-height: 1.15;
-        margin: 0 0 16px 0;
-        color: #feda6a;
-        opacity: 0;
-        transform: translateY(-12px);
-        animation: fadeSlideDown 800ms ease-out forwards;
-    }
-    .about-subtitle {
-        color: #e7e7e7;
-        margin: 0 0 24px 0;
-        font-size: 18px;
-    }
-    .about-meta {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin: 24px auto 28px;
-        color: #f0f0f0;
-    }
-    .about-meta strong { color: #feda6a; }
-    @media (min-width: 640px) {
-        .about-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-
-    .members {
-        list-style: none;
-        padding: 0;
-        margin: 12px auto 0;
-        display: grid;
-        gap: 10px;
-        max-width: 560px;
-    }
-    @media (min-width: 640px) {
-        .members { grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
-    .member {
-        background: rgba(62,66,78,0.45);
-        border: 1px solid rgba(254,218,106,0.25);
-        color: #fff;
-        padding: 14px 16px;
-        border-radius: 10px;
-        transition: transform 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
-        opacity: 0;
-        transform: translateY(12px);
-    }
-    .member:hover {
-        transform: translateY(0) scale(1.015);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.28);
-        background: rgba(62,66,78,0.62);
-    }
-    .member.visible { opacity: 1; transform: translateY(0); }
-
-    .about-footer {
-        margin-top: 28px;
-        color: #d8d8d8;
-        font-size: 15px;
-    }
-
-    @keyframes fadeSlideDown {
-        0%   { opacity: 0; transform: translateY(-12px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-</style>
-
 <section class="about-section" aria-labelledby="about-heading">
     <header>
-        <h1 id="about-heading" class="about-heading">About Us</h1>
+        <h1 id="about-heading" class="about-heading slide-down">About Us</h1>
         <p class="about-subtitle">We are <strong>Code Wizards</strong> building <strong>EchoSign</strong> to make communication more inclusive.</p>
     </header>
 
